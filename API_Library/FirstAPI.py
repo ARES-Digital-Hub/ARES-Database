@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from API_Library.APIClient import APIClient
 from API_Library.APIParams import APIParams
+from API_Library.APIUtils import Utils
 from API_Library.API_Models.Team import Team
 from API_Library.API_Models.Event import Event
 from API_Library.API_Models.Season import Season
@@ -20,7 +21,7 @@ class FirstAPI:
         :param year: The year for which to fetch events.
         :return: List of event codes.
         """
-        year = year or self.find_year()
+        year = year or Utils.find_year()
         params = APIParams(path_segments=[year, 'events'])
         response = self.client.api_request(params)
         return [event.get("code") for event in response.get('events', [])]
@@ -31,9 +32,9 @@ class FirstAPI:
         :param year: The year for which to fetch events.
         :return: List of event codes.
         """
-        year = year or self.find_year()
+        year = year or Utils.find_year()
         today = datetime.now(timezone.utc).date()
-        yesterday = today - timedelta(days=7)
+        yesterday = today - timedelta(days=2)
 
         params = APIParams(path_segments=[year, 'events'])
         response = self.client.api_request(params)
@@ -52,12 +53,12 @@ class FirstAPI:
             print(f"Error fetching event data for {event}: {e}")
             return event, None
 
-    def get_season(self, year=None, debug=False, events="Future"):
+    def get_season(self, year=None, debug=False, eventModes="Future"):
         '''
         Set Events to "All" to get all events for the season
         '''
-        year = year or self.find_year()
-        if events == "All":
+        year = year or Utils.find_year()
+        if eventModes == "All":
             events = self.get_season_events(year=year)
         else:
             events = self.get_future_season_events(year=year)
@@ -78,6 +79,9 @@ class FirstAPI:
 
         if progress_bar:
             progress_bar.close()
+        
+        if eventModes == "All":
+            season = Utils.generate_rankings(season)
 
         return season
 
@@ -90,7 +94,7 @@ class FirstAPI:
         progress_bar.update(1)
 
     def get_event_data(self, eventCode, year=None):
-        year = year or self.find_year()
+        year = year or Utils.find_year()
 
         try:
             params = APIParams(path_segments=[year, 'matches', eventCode])
@@ -151,7 +155,7 @@ class FirstAPI:
         return event
 
     def get_endgame_stats(self, eventCode, year=None):
-        year = year or self.find_year()
+        year = year or Utils.find_year()
         params = APIParams(path_segments=[year, 'scores', eventCode, 'qual'])
         response = self.client.api_request(params)
         match_scores = response.get('matchScores', [])
@@ -167,7 +171,7 @@ class FirstAPI:
         return result
 
     def get_penalties(self, eventCode, year=None):
-        year = year or self.find_year()
+        year = year or Utils.find_year()
         params = APIParams(path_segments=[year, 'scores', eventCode, 'qual'])
         response = self.client.api_request(params)
         match_scores = response.get('matchScores', [])
@@ -183,7 +187,7 @@ class FirstAPI:
         return result
 
     def get_team_info(self, team_number, year=None) -> Team:
-        year = year or self.find_year()
+        year = year or Utils.find_year()
         team_info_params = APIParams(
             path_segments=[year, 'teams'],
             query_params={'teamNumber': str(team_number)}
@@ -201,14 +205,9 @@ class FirstAPI:
             location=location
         )
 
-    @staticmethod
-    def find_year():
-        current_date = datetime.now()
-        return current_date.year - 1 if current_date.month < 8 else current_date.year
-
 def main():
     first_api = FirstAPI()
-    season = first_api.get_season(debug=True)
+    season = first_api.get_season(debug=True, eventModes="All")
     # print(f"Season Data: {season}")
 
 if __name__ == "__main__":
